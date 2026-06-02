@@ -38,30 +38,13 @@
 
 ## 4）系统架构
 
-```mermaid
-graph TD
-    Camera[手机摄像头] --> Video[实时视频流]
-    Video --> Canvas[浏览器 Canvas]
-    Canvas --> API[Flask HTTPS API]
+<p align="center">
+  <img src="architecture.svg" alt="Architecture diagram" width="900">
+</p>
 
-    API --> Predict[/predict/]
-    API --> Realtime[/predict_realtime/]
+Single-shot flow: camera -> canvas -> `/predict` -> YOLO -> annotated preview -> cached crops -> `/confirm`.
 
-    Predict --> YOLO[YOLO 检测器]
-    Realtime --> YOLO
-
-    YOLO --> Preview[带框预览图]
-    YOLO --> Detections[Detections JSON]
-
-    Predict --> Cache[按用户缓存结果]
-    Cache --> Confirm[/confirm/]
-
-    Detections --> Overlay[覆盖层 Canvas 与 FPS]
-```
-
-单次检测链路：camera -> canvas -> `/predict` -> YOLO -> 带框预览图 -> 缓存裁剪结果 -> `/confirm`。
-
-实时检测链路：camera -> canvas -> `/predict_realtime` -> YOLO -> detection JSON -> 覆盖层 canvas。
+Realtime flow: camera -> canvas -> `/predict_realtime` -> YOLO -> detection JSON -> overlay canvas.
 
 ## 5）模型与训练
 
