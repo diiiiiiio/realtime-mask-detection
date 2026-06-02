@@ -39,25 +39,29 @@
 ## 4）系统架构
 
 ```mermaid
-flowchart TD
-    camera["手机摄像头"] -->|"getUserMedia"| video["实时视频流"]
-    video -->|"抓取帧"| frame["浏览器 Canvas 帧"]
-    frame -->|"base64 JPEG over HTTPS"| gateway["Flask HTTPS 网关"]
+graph TD
+    Camera[手机摄像头] --> Video[实时视频流]
+    Video --> Canvas[浏览器 Canvas]
+    Canvas --> API[Flask HTTPS API]
 
-    gateway -->|"单次请求"| predict["/predict"]
-    gateway -->|"实时请求"| realtime["/predict_realtime"]
+    API --> Predict[/predict/]
+    API --> Realtime[/predict_realtime/]
 
-    predict --> yolo["微调后的 YOLO 检测器"]
-    realtime --> yolo
+    Predict --> YOLO[YOLO 检测器]
+    Realtime --> YOLO
 
-    yolo -->|"带框预览图"| preview["渲染后的返回图片"]
-    yolo -->|"框坐标 + 分数"| detections["Detections JSON"]
+    YOLO --> Preview[带框预览图]
+    YOLO --> Detections[Detections JSON]
 
-    predict --> cache["按用户缓存最近结果"]
-    cache -->|"确认后裁剪人脸"| confirm["/confirm"]
+    Predict --> Cache[按用户缓存结果]
+    Cache --> Confirm[/confirm/]
 
-    detections --> overlay["浏览器覆盖层 Canvas + FPS"]
+    Detections --> Overlay[覆盖层 Canvas 与 FPS]
 ```
+
+单次检测链路：camera -> canvas -> `/predict` -> YOLO -> 带框预览图 -> 缓存裁剪结果 -> `/confirm`。
+
+实时检测链路：camera -> canvas -> `/predict_realtime` -> YOLO -> detection JSON -> 覆盖层 canvas。
 
 ## 5）模型与训练
 

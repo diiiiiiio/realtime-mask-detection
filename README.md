@@ -39,25 +39,29 @@ Sample prediction image (JPG):
 ## 4) Architecture
 
 ```mermaid
-flowchart TD
-    camera["Phone Camera"] -->|"getUserMedia"| video["Live Video Stream"]
-    video -->|"captureFrame"| frame["Browser Canvas Frame"]
-    frame -->|"base64 JPEG over HTTPS"| gateway["Flask HTTPS Gateway"]
+graph TD
+    Camera[Phone Camera] --> Video[Live Video]
+    Video --> Canvas[Browser Canvas]
+    Canvas --> API[Flask HTTPS API]
 
-    gateway -->|"single-shot request"| predict["/predict"]
-    gateway -->|"live request"| realtime["/predict_realtime"]
+    API --> Predict[/predict/]
+    API --> Realtime[/predict_realtime/]
 
-    predict --> yolo["Fine-Tuned YOLO Detector"]
-    realtime --> yolo
+    Predict --> YOLO[YOLO Detector]
+    Realtime --> YOLO
 
-    yolo -->|"annotated preview"| preview["Annotated Response Image"]
-    yolo -->|"boxes + scores"| detections["Detections JSON"]
+    YOLO --> Preview[Annotated Preview]
+    YOLO --> Detections[Detections JSON]
 
-    predict --> cache["Per-User Prediction Cache"]
-    cache -->|"crop confirmed faces"| confirm["/confirm"]
+    Predict --> Cache[Per User Cache]
+    Cache --> Confirm[/confirm/]
 
-    detections --> overlay["Browser Overlay Canvas + FPS"]
+    Detections --> Overlay[Overlay Canvas and FPS]
 ```
+
+Single-shot flow: camera -> canvas -> `/predict` -> YOLO -> annotated preview -> cached crops -> `/confirm`.
+
+Realtime flow: camera -> canvas -> `/predict_realtime` -> YOLO -> detection JSON -> overlay canvas.
 
 ## 5) Model and Training
 
