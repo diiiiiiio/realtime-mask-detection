@@ -39,24 +39,24 @@ Sample prediction image (JPG):
 ## 4) Architecture
 
 ```mermaid
-graph TD
-    Camera[Phone Camera] --> Video[Live Video]
-    Video --> Canvas[Browser Canvas]
-    Canvas --> API[Flask HTTPS API]
+flowchart TD
+    Camera["Phone Camera"] --> Video["Live Video"]
+    Video --> Canvas["Browser Canvas"]
+    Canvas --> API["Flask HTTPS API"]
 
-    API --> Predict[/predict/]
-    API --> Realtime[/predict_realtime/]
+    API --> Predict["/predict"]
+    API --> Realtime["/predict_realtime"]
 
-    Predict --> YOLO[YOLO Detector]
+    Predict --> YOLO["YOLO Detector"]
     Realtime --> YOLO
 
-    YOLO --> Preview[Annotated Preview]
-    YOLO --> Detections[Detections JSON]
+    YOLO --> Preview["Annotated Preview"]
+    YOLO --> Detections["Detections JSON"]
 
-    Predict --> Cache[Per User Cache]
-    Cache --> Confirm[/confirm/]
+    Predict --> Cache["Per User Cache"]
+    Cache --> Confirm["/confirm"]
 
-    Detections --> Overlay[Overlay Canvas and FPS]
+    Detections --> Overlay["Overlay Canvas and FPS"]
 ```
 
 Single-shot flow: camera -> canvas -> `/predict` -> YOLO -> annotated preview -> cached crops -> `/confirm`.
