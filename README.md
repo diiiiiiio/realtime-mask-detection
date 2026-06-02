@@ -38,26 +38,9 @@ Sample prediction image (JPG):
 
 ## 4) Architecture
 
-```mermaid
-flowchart TB
-    A["Phone Camera"] --> B["Live Video"]
-    B --> C["Browser Canvas"]
-    C --> D["Flask HTTPS API"]
-
-    D --> E["&#47;predict"]
-    D --> F["&#47;predict_realtime"]
-
-    E --> G["YOLO Detector"]
-    F --> G
-
-    G --> H["Annotated Preview"]
-    G --> I["Detections JSON"]
-
-    E --> J["Per User Cache"]
-    J --> K["&#47;confirm"]
-
-    I --> L["Overlay Canvas and FPS"]
-```
+<p align="center">
+  <img src="architecture.svg" alt="Architecture diagram" width="900">
+</p>
 
 Single-shot flow: camera -> canvas -> `/predict` -> YOLO -> annotated preview -> cached crops -> `/confirm`.
 
