@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mask Detection</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background: #f5f7fa;
+            color: #222;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 26px;
+            margin: 8px 0 4px 0;
+            animation: hue 3s infinite;
+        }
+
+        .video-wrap, .preview-wrap {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+            line-height: 0;
+            position: relative;
+        }
+
+        video, #outputImage {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .live-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(234, 67, 53, 0.85);
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+        }
+
+        .fps-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            pointer-events: none;
+        }
+
+        .btn-live-on { background: #ea4335; }
+        .btn-live-off { background: #34a853; }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            flex: 1 1 auto;
+            min-width: 130px;
+            height: 48px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            cursor: pointer;
+            transition: filter 0.15s;
+        }
+
+        button:hover { filter: brightness(1.08); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary  { background: #4c8bf5; }
+        .btn-success  { background: #34a853; }
+        .btn-danger   { background: #ea4335; }
+        .btn-neutral  { background: #5f6368; }
+
+        .summary {
+            display: flex;
+            gap: 8px;
+            justify-content: space-around;
+            padding: 12px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .summary-item {
+            text-align: center;
+            flex: 1;
+        }
+        .summary-label { font-size: 13px; color: #666; }
+        .summary-value { font-size: 24px; font-weight: bold; margin-top: 2px; }
+
+        .crops {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .crop-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            border-left: 6px solid #ccc;
+        }
+        .crop-card img {
+            width: 96px;
+            height: 96px;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .crop-info { display: flex; flex-direction: column; gap: 4px; }
+        .crop-text  { font-size: 16px; font-weight: 600; }
+        .crop-conf  { font-size: 13px; color: #666; }
+
+        .hidden { display: none !important; }
+
+        @keyframes hue {
+            0%   { color: #ea4335; }
+            50%  { color: #4c8bf5; }
+            100% { color: #34a853; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Mask Detection</h1>
+
+    <div class="video-wrap" id="videoWrap">
+        <video id="camera" autoplay playsinline muted></video>
+        <canvas id="overlayCanvas"></canvas>
+        <div id="liveBadge" class="live-badge hidden">● LIVE</div>
+        <div id="fpsBadge" class="fps-badge hidden">-- fps</div>
+    </div>
+
+    <div class="button-row">
+        <button id="liveBtn" class="btn-live-off">Start Live Detection</button>
+    </div>
+
+    <div class="button-row">
+        <button id="captureBtn" class="btn-primary">Capture</button>
+        <button id="switchCamBtn" class="btn-neutral">Switch Camera</button>
+        <button id="logoutBtn" class="btn-danger">Logout</button>
+    </div>
+
+    <div class="preview-wrap hidden" id="previewWrap">
+        <img id="outputImage" alt="annotated"/>
+    </div>
+
+    <div class="summary hidden" id="summary">
+        <div class="summary-item">
+            <div class="summary-label">With Mask</div>
+            <div class="summary-value" id="cnt-with"   style="color:#34a853">0</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">No Mask</div>
+            <div class="summary-value" id="cnt-no"     style="color:#ea4335">0</div>
+        </div>
+        <div class="summary-item">
+            <div class="summary-label">Incorrect</div>
+            <div class="summary-value" id="cnt-incorrect" style="color:#fbbc04">0</div>
+        </div>
+    </div>
+
+    <div class="button-row">
+        <button id="confirmBtn" class="btn-success hidden">Show Cropped Faces</button>
+        <button id="resetBtn"   class="btn-neutral hidden">Re-Capture</button>
+    </div>
+
+    <div class="crops" id="crops"></div>
+</div>
+
+<script>
+    const cameraElement = document.getElementById('camera');
+    const captureBtn    = document.getElementById('captureBtn');
+    const switchCamBtn  = document.getElementById('switchCamBtn');
+    const logoutBtn     = document.getElementById('logoutBtn');
+    const confirmBtn    = document.getElementById('confirmBtn');
+    const resetBtn      = document.getElementById('resetBtn');
+    const previewWrap   = document.getElementById('previewWrap');
+    const outputImage   = document.getElementById('outputImage');
+    const summaryEl     = document.getElementById('summary');
+    const cropsDiv      = document.getElementById('crops');
+
+    const liveBtn       = document.getElementById('liveBtn');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx    = overlayCanvas.getContext('2d');
+    const liveBadge     = document.getElementById('liveBadge');
+    const fpsBadge      = document.getElementById('fpsBadge');
+
+    const cntWith       = document.getElementById('cnt-with');
+    const cntNo         = document.getElementById('cnt-no');
+    const cntIncorrect  = document.getElementById('cnt-incorrect');
+
+    let currentStream = null;
+    let facingMode = 'user'; // 'user' = front, 'environment' = back
+    let capturedImageData = '';
+
+    // ---------- Live detection state ----------
+    const LIVE_WIDTH = 480;          // resize frames to this width before sending
+    const LIVE_JPEG_QUALITY = 0.7;   // toDataURL quality for live frames
+
+    let liveActive = false;
+    let inFlight = false;
+    let liveTimerId = null;
+    let lastTickTs = 0;
+    let fpsEma = 0;
+    const liveCaptureCanvas = document.createElement('canvas');
+
+    const CATEGORY_STYLE = {
+        with_mask:    { color: '#34a853', text: 'Mask On' },
+        without_mask: { color: '#ea4335', text: 'No Mask' },
+        incorrect:    { color: '#fbbc04', text: 'Incorrect' },
+    };
+
+    async function startCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Your browser does not support camera access.');
+            return;
+        }
+        try {
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+            }
+            currentStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: facingMode } },
+                audio: false,
+            });
+            cameraElement.srcObject = currentStream;
+        } catch (err) {
+            console.error('Camera error:', err);
+            alert('Camera access failed: ' + err.message
+                + '\n\nMake sure you are on https:// (not http://) and granted camera permission.');
+        }
+    }
+
+    captureBtn.addEventListener('click', async () => {
+        if (!cameraElement.videoWidth || !cameraElement.videoHeight) {
+            alert('Camera not ready. Please wait a moment after granting permission.');
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width  = cameraElement.videoWidth;
+        canvas.height = cameraElement.videoHeight;
+        canvas.getContext('2d').drawImage(cameraElement, 0, 0, canvas.width, canvas.height);
+        capturedImageData = canvas.toDataURL('image/jpeg', 0.92);
+
+        captureBtn.disabled = true;
+        captureBtn.textContent = 'Detecting...';
+
+        try {
+            const res = await fetch('/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: capturedImageData }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.error || !data.image_with_bboxes) {
+                alert('Prediction failed: ' + (data.error || 'unknown'));
+                return;
+            }
+
+            outputImage.src = data.image_with_bboxes;
+            previewWrap.classList.remove('hidden');
+
+            const s = data.summary || { with_mask: 0, without_mask: 0, incorrect: 0 };
+            cntWith.textContent      = s.with_mask;
+            cntNo.textContent        = s.without_mask;
+            cntIncorrect.textContent = s.incorrect;
+            summaryEl.classList.remove('hidden');
+
+            confirmBtn.classList.toggle('hidden', (data.count || 0) === 0);
+            resetBtn.classList.remove('hidden');
+            cropsDiv.innerHTML = '';
+        } catch (err) {
+            console.error('Predict error:', err);
+            alert('Network error: ' + err.message);
+        } finally {
+            captureBtn.disabled = false;
+            captureBtn.textContent = 'Capture';
+        }
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        cropsDiv.innerHTML = '';
+        try {
+            const res = await fetch('/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await res.json();
+            if (!res.ok || !data.crops) {
+                alert('Crop failed: ' + (data.error || 'unknown'));
+                return;
+            }
+            for (const crop of data.crops) {
+                let text, color;
+                switch (crop.category) {
+                    case 'without_mask':
+                        text = 'No Mask';        color = '#ea4335'; break;
+                    case 'incorrect':
+                        text = 'Worn Incorrectly'; color = '#fbbc04'; break;
+                    default:
+                        text = 'Mask On';        color = '#34a853';
+                }
+                const card = document.createElement('div');
+                card.className = 'crop-card';
+                card.style.borderLeftColor = color;
+                card.innerHTML = `
+                    <img src="${crop.image}" alt="face crop"/>
+                    <div class="crop-info">
+                        <div class="crop-text"  style="color:${color}">${text}</div>
+                        <div class="crop-conf">Confidence: ${(crop.confidence * 100).toFixed(1)}%</div>
+                        <div class="crop-conf">Class: ${crop.label}</div>
+                    </div>
+                `;
+                cropsDiv.appendChild(card);
+            }
+        } catch (err) {
+            console.error('Confirm error:', err);
+            alert('Network error: ' + err.message);
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        previewWrap.classList.add('hidden');
+        summaryEl.classList.add('hidden');
+        confirmBtn.classList.add('hidden');
+        resetBtn.classList.add('hidden');
+        cropsDiv.innerHTML = '';
+        outputImage.src = '';
+    });
+
+    // ---------- Live detection ----------
+
+    function clearOverlay() {
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+
+    function setManualButtonsEnabled(enabled) {
+        captureBtn.disabled = !enabled;
+        switchCamBtn.disabled = !enabled;
+        confirmBtn.disabled = !enabled;
+        resetBtn.disabled = !enabled;
+    }
+
+    function drawDetections(detections, imgW, imgH) {
+        if (overlayCanvas.width !== imgW || overlayCanvas.height !== imgH) {
+            overlayCanvas.width = imgW;
+            overlayCanvas.height = imgH;
+        }
+        clearOverlay();
+        const lineWidth = Math.max(2, Math.round(imgW / 240));
+        const fontPx = Math.max(12, Math.round(imgW / 28));
+        overlayCtx.lineWidth = lineWidth;
+        overlayCtx.font = `600 ${fontPx}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
+        overlayCtx.textBaseline = 'top';
+        for (const d of detections) {
+            const style = CATEGORY_STYLE[d.category] || CATEGORY_STYLE.with_mask;
+            const x1 = d.x - d.w / 2;
+            const y1 = d.y - d.h / 2;
+            overlayCtx.strokeStyle = style.color;
+            overlayCtx.strokeRect(x1, y1, d.w, d.h);
+            const labelText = `${style.text} ${(d.conf * 100).toFixed(0)}%`;
+            const padX = 4, padY = 2;
+            const textWidth = overlayCtx.measureText(labelText).width;
+            const labelH = fontPx + padY * 2;
+            let labelY = y1 - labelH;
+            if (labelY < 0) labelY = y1;
+            overlayCtx.fillStyle = style.color;
+            overlayCtx.fillRect(x1, labelY, textWidth + padX * 2, labelH);
+            overlayCtx.fillStyle = '#fff';
+            overlayCtx.fillText(labelText, x1 + padX, labelY + padY);
+        }
+    }
+
+    function updateSummary(s) {
+        const safe = s || { with_mask: 0, without_mask: 0, incorrect: 0 };
+        cntWith.textContent      = safe.with_mask || 0;
+        cntNo.textContent        = safe.without_mask || 0;
+        cntIncorrect.textContent = safe.incorrect || 0;
+    }
+
+    function updateFps(now) {
+        if (lastTickTs > 0) {
+            const dt = now - lastTickTs;
+            if (dt > 0) {
+                const inst = 1000 / dt;
+                fpsEma = fpsEma > 0 ? (fpsEma * 0.7 + inst * 0.3) : inst;
+                fpsBadge.textContent = fpsEma.toFixed(1) + ' fps';
+            }
+        }
+        lastTickTs = now;
+    }
+
+    function captureLiveFrame() {
+        const vw = cameraElement.videoWidth;
+        const vh = cameraElement.videoHeight;
+        if (!vw || !vh) return null;
+        const w = LIVE_WIDTH;
+        const h = Math.round(w * vh / vw);
+        if (liveCaptureCanvas.width !== w || liveCaptureCanvas.height !== h) {
+            liveCaptureCanvas.width = w;
+            liveCaptureCanvas.height = h;
+        }
+        const ctx = liveCaptureCanvas.getContext('2d');
+        ctx.drawImage(cameraElement, 0, 0, w, h);
+        return liveCaptureCanvas.toDataURL('image/jpeg', LIVE_JPEG_QUALITY);
+    }
+
+    async function liveTick() {
+        if (!liveActive || inFlight) return;
+        const frame = captureLiveFrame();
+        if (!frame) {
+            // Camera not ready yet, try again shortly.
+            liveTimerId = setTimeout(liveTick, 100);
+            return;
+        }
+        inFlight = true;
+        try {
+            const res = await fetch('/predict_realtime', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ image: frame }),
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || ('HTTP ' + res.status));
+            }
+            if (!liveActive) return;
+            drawDetections(data.detections || [], data.img_w, data.img_h);
+            updateSummary(data.summary);
+            updateFps(performance.now());
+        } catch (err) {
+            console.error('Realtime predict error:', err);
+            stopLiveDetection();
+            alert('Live detection stopped: ' + err.message
+                + '\n\nThe server may be offline or unreachable. You can still use manual Capture once it is back.');
+            return;
+        } finally {
+            inFlight = false;
+        }
+        if (liveActive) {
+            liveTimerId = setTimeout(liveTick, 0);
+        }
+    }
+
+    function startLiveDetection() {
+        if (liveActive) return;
+        if (!cameraElement.videoWidth) {
+            alert('Camera not ready. Please wait a moment after granting permission.');
+            return;
+        }
+        // Hide any leftover capture-mode UI so it does not conflict.
+        previewWrap.classList.add('hidden');
+        confirmBtn.classList.add('hidden');
+        resetBtn.classList.add('hidden');
+        cropsDiv.innerHTML = '';
+        outputImage.src = '';
+
+        liveActive = true;
+        inFlight = false;
+        lastTickTs = 0;
+        fpsEma = 0;
+
+        liveBtn.textContent = 'Stop Live Detection';
+        liveBtn.classList.remove('btn-live-off');
+        liveBtn.classList.add('btn-live-on');
+        liveBadge.classList.remove('hidden');
+        fpsBadge.classList.remove('hidden');
+        fpsBadge.textContent = '-- fps';
+
+        updateSummary({ with_mask: 0, without_mask: 0, incorrect: 0 });
+        summaryEl.classList.remove('hidden');
+
+        setManualButtonsEnabled(false);
+
+        liveTimerId = setTimeout(liveTick, 0);
+    }
+
+    function stopLiveDetection() {
+        if (!liveActive) return;
+        liveActive = false;
+        if (liveTimerId !== null) {
+            clearTimeout(liveTimerId);
+            liveTimerId = null;
+        }
+        clearOverlay();
+
+        liveBtn.textContent = 'Start Live Detection';
+        liveBtn.classList.remove('btn-live-on');
+        liveBtn.classList.add('btn-live-off');
+        liveBadge.classList.add('hidden');
+        fpsBadge.classList.add('hidden');
+
+        setManualButtonsEnabled(true);
+    }
+
+    liveBtn.addEventListener('click', () => {
+        if (liveActive) stopLiveDetection();
+        else startLiveDetection();
+    });
+
+    switchCamBtn.addEventListener('click', () => {
+        facingMode = (facingMode === 'user') ? 'environment' : 'user';
+        startCamera();
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+        stopLiveDetection();
+        try {
+            await fetch('/logout', { method: 'POST', credentials: 'include' });
+        } catch (e) { /* ignore */ }
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+        window.location.href = 'login.html';
+    });
+
+    window.addEventListener('load', startCamera);
+    window.addEventListener('beforeunload', () => {
+        stopLiveDetection();
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+    });
+</script>
+</body>
+</html>
