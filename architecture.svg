@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="640" viewBox="0 0 1100 640" role="img" aria-labelledby="title desc">
+  <title id="title">Architecture diagram</title>
+  <desc id="desc">Phone Camera to Live Video to Browser Canvas to Flask HTTPS API, then single-shot and realtime prediction flows through YOLO Detector.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#333"/>
+    </marker>
+    <style>
+      .box { fill: #f6f8fa; stroke: #57606a; stroke-width: 1.6; rx: 10; ry: 10; }
+      .api { fill: #eef6ff; stroke: #0969da; stroke-width: 1.8; rx: 10; ry: 10; }
+      .yolo { fill: #fff8c5; stroke: #9a6700; stroke-width: 1.8; rx: 10; ry: 10; }
+      .out { fill: #dafbe1; stroke: #1a7f37; stroke-width: 1.8; rx: 10; ry: 10; }
+      .txt { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 18px; fill: #24292f; text-anchor: middle; dominant-baseline: middle; }
+      .small { font-size: 16px; }
+      .line { stroke: #333; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect class="box" x="60" y="55" width="180" height="58"/>
+  <text class="txt" x="150" y="84">Phone Camera</text>
+
+  <rect class="box" x="310" y="55" width="180" height="58"/>
+  <text class="txt" x="400" y="84">Live Video</text>
+
+  <rect class="box" x="560" y="55" width="190" height="58"/>
+  <text class="txt" x="655" y="84">Browser Canvas</text>
+
+  <rect class="api" x="840" y="55" width="200" height="58"/>
+  <text class="txt" x="940" y="84">Flask HTTPS API</text>
+
+  <path class="line" d="M240 84 H310"/>
+  <path class="line" d="M490 84 H560"/>
+  <path class="line" d="M750 84 H840"/>
+
+  <rect class="api" x="840" y="185" width="200" height="58"/>
+  <text class="txt" x="940" y="214">/predict</text>
+
+  <rect class="api" x="840" y="315" width="200" height="58"/>
+  <text class="txt" x="940" y="344">/predict_realtime</text>
+
+  <path class="line" d="M940 113 V185"/>
+  <path class="line" d="M940 113 V315"/>
+
+  <rect class="yolo" x="560" y="250" width="190" height="58"/>
+  <text class="txt" x="655" y="279">YOLO Detector</text>
+
+  <path class="line" d="M840 214 C785 214 785 279 750 279"/>
+  <path class="line" d="M840 344 C785 344 785 279 750 279"/>
+
+  <rect class="out" x="310" y="185" width="200" height="58"/>
+  <text class="txt" x="410" y="214">Annotated Preview</text>
+
+  <rect class="out" x="310" y="315" width="200" height="58"/>
+  <text class="txt" x="410" y="344">Detections JSON</text>
+
+  <path class="line" d="M560 279 C530 279 540 214 510 214"/>
+  <path class="line" d="M560 279 C530 279 540 344 510 344"/>
+
+  <rect class="box" x="585" y="445" width="170" height="58"/>
+  <text class="txt" x="670" y="474">Per User Cache</text>
+
+  <rect class="api" x="840" y="445" width="200" height="58"/>
+  <text class="txt" x="940" y="474">/confirm</text>
+
+  <path class="line" d="M940 243 V445"/>
+  <path class="line" d="M755 474 H840"/>
+
+  <rect class="out" x="60" y="315" width="200" height="58"/>
+  <text class="txt small" x="160" y="344">Overlay Canvas and FPS</text>
+
+  <path class="line" d="M310 344 H260"/>
+
+  <text class="txt small" x="550" y="590">Single-shot: camera → canvas → /predict → YOLO → preview → cache → /confirm</text>
+  <text class="txt small" x="550" y="620">Realtime: camera → canvas → /predict_realtime → YOLO → detection JSON → overlay canvas</text>
+</svg>
