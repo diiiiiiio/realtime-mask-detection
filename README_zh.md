@@ -34,25 +34,29 @@
 - **后端**：Python、Flask、Flask-CORS
 - **前端**：HTML、CSS、原生 JavaScript、HTML5 Canvas、`getUserMedia`
 - **运行方式**：本地 HTTPS（手机访问摄像头必须）
-- **依赖管理**：`BCR/Server/requirements.txt`
+- **依赖管理**：`RMD/Server/requirements.txt`
 
 ## 4）系统架构
 
 ```mermaid
-flowchart LR
-    cameraInput["手机摄像头"] -->|"getUserMedia"| videoElement["video元素"]
-    videoElement -->|"抓取帧"| offscreenCanvas["离屏Canvas"]
-    offscreenCanvas -->|"base64Jpeg"| httpsGateway["HTTPS网关"]
+flowchart TD
+    camera["手机摄像头"] -->|"getUserMedia"| video["实时视频流"]
+    video -->|"抓取帧"| frame["浏览器 Canvas 帧"]
+    frame -->|"base64 JPEG over HTTPS"| gateway["Flask HTTPS 网关"]
 
-    httpsGateway -->|"单次模式"| predictRoute["推理路由(/predict)"]
-    httpsGateway -->|"实时模式"| realtimeRoute["实时路由(/predict_realtime)"]
+    gateway -->|"单次请求"| predict["/predict"]
+    gateway -->|"实时请求"| realtime["/predict_realtime"]
 
-    predictRoute --> userCache["按用户缓存"]
-    userCache -->|"按需裁剪"| confirmRoute["裁剪路由(/confirm)"]
+    predict --> yolo["微调后的 YOLO 检测器"]
+    realtime --> yolo
 
-    predictRoute --> annotatedImage["带框预览图"]
-    realtimeRoute --> detectionsJson["检测结果JSON"]
-    detectionsJson --> overlayCanvas["覆盖层Canvas(框+fps)"]
+    yolo -->|"带框预览图"| preview["渲染后的返回图片"]
+    yolo -->|"框坐标 + 分数"| detections["Detections JSON"]
+
+    predict --> cache["按用户缓存最近结果"]
+    cache -->|"确认后裁剪人脸"| confirm["/confirm"]
+
+    detections --> overlay["浏览器覆盖层 Canvas + FPS"]
 ```
 
 ## 5）模型与训练
@@ -64,6 +68,7 @@ flowchart LR
   - `without_mask`
   - `mask_weared_incorrect`
 - 训练产物目录：`mask_continue_from_yolo26m-3`
+- 已收录到仓库的训练素材：[`assets/training/`](assets/training)
 
 ### 训练配置（来自 `args.yaml`）
 
@@ -87,17 +92,26 @@ flowchart LR
 
 ### 训练曲线
 
-![Training Results](../mask_continue_from_yolo26m-3/results.png)
-![Normalized Confusion Matrix](../mask_continue_from_yolo26m-3/confusion_matrix_normalized.png)
-![PR Curve](../mask_continue_from_yolo26m-3/BoxPR_curve.png)
+| 总览曲线 | PR 曲线 |
+|---|---|
+| ![Training Results](assets/training/results.png) | ![PR Curve](assets/training/BoxPR_curve.png) |
+| ![F1 Curve](assets/training/BoxF1_curve.png) | ![Normalized Confusion Matrix](assets/training/confusion_matrix_normalized.png) |
+
+补充素材：[Precision Curve](assets/training/BoxP_curve.png)、[Recall Curve](assets/training/BoxR_curve.png)、[Raw Confusion Matrix](assets/training/confusion_matrix.png)、[Per-epoch Metrics CSV](assets/training/results.csv)、[Training Args](assets/training/args.yaml)。
 
 ## 6）项目结构
 
 ```text
-Business-card-reader/
+realtime-mask-detection/
 ├─ README.md
 ├─ README_zh.md
-└─ BCR/
+├─ assets/
+│  └─ training/
+│     ├─ results.png
+│     ├─ BoxPR_curve.png
+│     ├─ confusion_matrix_normalized.png
+│     └─ results.csv
+└─ RMD/
    ├─ Client/
    │  ├─ login.html
    │  ├─ upload.html
@@ -115,7 +129,7 @@ Business-card-reader/
 ### 1. 安装依赖
 
 ```bash
-cd BCR/Server
+cd RMD/Server
 pip install -r requirements.txt
 ```
 
@@ -124,7 +138,7 @@ pip install -r requirements.txt
 必须存在：
 
 ```text
-BCR/Server/runs/yolo26mpro.pt
+RMD/Server/runs/yolo26mpro.pt
 ```
 
 ### 3. 启动服务

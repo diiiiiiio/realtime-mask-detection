@@ -34,25 +34,29 @@ Sample prediction image (JPG):
 - **Backend**: Python, Flask, Flask-CORS
 - **Frontend**: HTML, CSS, Vanilla JavaScript, HTML5 Canvas, `getUserMedia`
 - **Runtime**: HTTPS on local network for phone camera access
-- **Packaging**: `requirements.txt` in `BCR/Server`
+- **Packaging**: `requirements.txt` in `RMD/Server`
 
 ## 4) Architecture
 
 ```mermaid
-flowchart LR
-    cameraInput["PhoneCamera"] -->|"getUserMedia"| videoElement["VideoElement"]
-    videoElement -->|"captureFrame"| offscreenCanvas["OffscreenCanvas"]
-    offscreenCanvas -->|"base64Jpeg"| httpsGateway["HTTPSGateway"]
+flowchart TD
+    camera["Phone Camera"] -->|"getUserMedia"| video["Live Video Stream"]
+    video -->|"captureFrame"| frame["Browser Canvas Frame"]
+    frame -->|"base64 JPEG over HTTPS"| gateway["Flask HTTPS Gateway"]
 
-    httpsGateway -->|"singleShot"| predictRoute["PredictRoute(/predict)"]
-    httpsGateway -->|"realtime"| realtimeRoute["RealtimeRoute(/predict_realtime)"]
+    gateway -->|"single-shot request"| predict["/predict"]
+    gateway -->|"live request"| realtime["/predict_realtime"]
 
-    predictRoute --> userCache["PerUserCache"]
-    userCache -->|"onDemandCrop"| confirmRoute["ConfirmRoute(/confirm)"]
+    predict --> yolo["Fine-Tuned YOLO Detector"]
+    realtime --> yolo
 
-    predictRoute --> annotatedImage["AnnotatedPreviewImage"]
-    realtimeRoute --> detectionsJson["DetectionsJSON"]
-    detectionsJson --> overlayCanvas["OverlayCanvas(boxes+fps)"]
+    yolo -->|"annotated preview"| preview["Annotated Response Image"]
+    yolo -->|"boxes + scores"| detections["Detections JSON"]
+
+    predict --> cache["Per-User Prediction Cache"]
+    cache -->|"crop confirmed faces"| confirm["/confirm"]
+
+    detections --> overlay["Browser Overlay Canvas + FPS"]
 ```
 
 ## 5) Model and Training
@@ -64,6 +68,7 @@ flowchart LR
   - `without_mask`
   - `mask_weared_incorrect`
 - Training run source: `mask_continue_from_yolo26m-3`
+- Published training artifacts: [`assets/training/`](assets/training)
 
 ### Training Configuration (from `args.yaml`)
 
@@ -87,17 +92,26 @@ Final epoch (50): Precision `0.800`, Recall `0.745`, mAP@0.5 `0.744`, mAP@0.5:0.
 
 ### Training Curves
 
-![Training Results](../mask_continue_from_yolo26m-3/results.png)
-![Normalized Confusion Matrix](../mask_continue_from_yolo26m-3/confusion_matrix_normalized.png)
-![PR Curve](../mask_continue_from_yolo26m-3/BoxPR_curve.png)
+| Overview | PR Curve |
+|---|---|
+| ![Training Results](assets/training/results.png) | ![PR Curve](assets/training/BoxPR_curve.png) |
+| ![F1 Curve](assets/training/BoxF1_curve.png) | ![Normalized Confusion Matrix](assets/training/confusion_matrix_normalized.png) |
+
+Additional artifacts: [Precision Curve](assets/training/BoxP_curve.png), [Recall Curve](assets/training/BoxR_curve.png), [Raw Confusion Matrix](assets/training/confusion_matrix.png), [Per-epoch Metrics CSV](assets/training/results.csv), [Training Args](assets/training/args.yaml).
 
 ## 6) Project Structure
 
 ```text
-Business-card-reader/
+realtime-mask-detection/
 ├─ README.md
 ├─ README_zh.md
-└─ BCR/
+├─ assets/
+│  └─ training/
+│     ├─ results.png
+│     ├─ BoxPR_curve.png
+│     ├─ confusion_matrix_normalized.png
+│     └─ results.csv
+└─ RMD/
    ├─ Client/
    │  ├─ login.html
    │  ├─ upload.html
@@ -115,7 +129,7 @@ Business-card-reader/
 ### 1. Install dependencies
 
 ```bash
-cd BCR/Server
+cd RMD/Server
 pip install -r requirements.txt
 ```
 
@@ -124,7 +138,7 @@ pip install -r requirements.txt
 Required file:
 
 ```text
-BCR/Server/runs/yolo26mpro.pt
+RMD/Server/runs/yolo26mpro.pt
 ```
 
 ### 3. Run server
